@@ -165,35 +165,35 @@ println("¿Son iguales? $(resultado5a == resultado5b)\n");
 println("========== TESTS COMPLETADOS ==========\n");
 
 function calculateMinMaxNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    min = minimum(dataset, dims=1);
-    max = maximum(dataset, dims=1);
+    min = minimum(dataset,dims=1);
+    max = maximum(dataset,dims=1);
     return (min,max);
 end;
 
 function calculateZeroMeanNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    media = mean(dataset, dims=1);
-    desviacion = std(dataset, dims=1);
+    media = mean(dataset,dims=1);
+    desviacion = std(dataset,dims=1);
     return (media,desviacion);
 end;
 
 function normalizeMinMax!(dataset::AbstractArray{<:Real,2},
     normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    minValues = normalizationParameters[1];
-    maxValues = normalizationParameters[2];
-    dataset .-= minValues;
-    dataset ./= (maxValues .- minValues);
-    dataset[:, vec(minValues.==maxValues)] .= 0;
+    minVal = normalizationParameters[1];
+    maxVal = normalizationParameters[2];
+    dataset .-= minVal;
+    dataset ./= (maxVal.-minVal);
+    dataset[:,vec(minVal.==maxVal)] .= 0;
     return dataset;
 end;
 
 function normalizeMinMax!(dataset::AbstractArray{<:Real,2})
     normalizationParameters = calculateMinMaxNormalizationParameters(dataset);
-    return normalizeMinMax!(dataset, normalizationParameters);
+    return normalizeMinMax!(dataset,normalizationParameters);
 end;
 
 function normalizeMinMax(dataset::AbstractArray{<:Real,2},
     normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    return normalizeMinMax!(copy(dataset), normalizationParameters);
+    return normalizeMinMax!(copy(dataset),normalizationParameters);
 end;
 
 function normalizeMinMax(dataset::AbstractArray{<:Real,2})
@@ -202,22 +202,22 @@ end;
 
 function normalizeZeroMean!(dataset::AbstractArray{<:Real,2},
     normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    meanValues = normalizationParameters[1];
-    stdValues = normalizationParameters[2];
-    dataset .-= meanValues;
-    dataset ./= stdValues;
-    dataset[:, vec(stdValues.==0)] .= 0;
+    media = normalizationParameters[1];
+    desviacion = normalizationParameters[2];
+    dataset .-= media;
+    dataset ./= desviacion;
+    dataset[:,vec(desviacion.==0)] .= 0;
     return dataset;
 end;
 
 function normalizeZeroMean!(dataset::AbstractArray{<:Real,2})
     normalizationParameters = calculateZeroMeanNormalizationParameters(dataset);
-    return normalizeZeroMean!(dataset, normalizationParameters);
+    return normalizeZeroMean!(dataset,normalizationParameters);
 end;
 
 function normalizeZeroMean(dataset::AbstractArray{<:Real,2},
     normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    return normalizeZeroMean!(copy(dataset), normalizationParameters);
+    return normalizeZeroMean!(copy(dataset),normalizationParameters);
 end;
 
 function normalizeZeroMean(dataset::AbstractArray{<:Real,2})
