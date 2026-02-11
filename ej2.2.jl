@@ -36,9 +36,9 @@ function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}
 end;
 
 function accuracy(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    #
     # Codigo a desarrollar
-    #
+    realtobool=classifyOutputs(outputs, threshold=threshold)
+    accuracy(realtobool, targets)
 end;
 
 function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5)
@@ -46,6 +46,7 @@ function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,
     # Codigo a desarrollar
     #
 end;
+
 
 
 
