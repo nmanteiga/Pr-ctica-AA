@@ -12,9 +12,9 @@ function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
         return reshape(results,:,1)
     else 
         (_, indicesMaxEachInstance) = findmax(outputs, dims=2)
-        outputsbool= falses(size(outputs))
-        outputsbool[indicesMaxEachInstance] .= true
-        return outputsbool
+        outputs= falses(size(outputs))
+        outputs[indicesMaxEachInstance] .= true
+        return outputs
     end
 end;
 
@@ -42,4 +42,5 @@ function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,
     # Codigo a desarrollar
     #
 end;
+
 
