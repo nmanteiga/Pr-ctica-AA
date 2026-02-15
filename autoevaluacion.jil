@@ -155,7 +155,7 @@ result_testLosses       = Float32[0.7051467, 0.69689614, 0.6892454, 0.6822056, 0
 @assert(all(isapprox.(validationLosses, result_validationLosses; rtol=1e-5)))
 @assert(all(isapprox.(testLosses,       result_testLosses;       rtol=1e-5)))
 
-
+#println("\ntodas las funciones funcionan correctamente")
 
 
 
