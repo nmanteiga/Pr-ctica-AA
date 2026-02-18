@@ -204,7 +204,7 @@ end;
 # ----------------------------------------------------------------------------------------------
 using Random
 
-function holdOut(N, P)
+function holdOut(N::Int, P::Real)
     perm = randperm(N)                  # 1..N
     n_test = round(Int, P * N)          # patrones para test
     test_idx = perm[1:n_test]           # primeros para test
@@ -213,7 +213,7 @@ function holdOut(N, P)
 end
 
 # Nueva función con train/val/test
-function holdOut(N, Pval, Ptest)
+function holdOut(N::Int, Pval::Real, Ptest::Real)
     # 1) Separar test
     train1_idx, test_idx = holdOut(N, Ptest)
 
