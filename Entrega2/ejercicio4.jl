@@ -20,13 +20,29 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    
+    outputs_bool = outputs .>= threshold
+    return confusionMatrix(outputs_bool, targets)
 end;
 
 function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
+    if size(outputs, 2) != size(targets, 2) || size(outputs, 2) == 2
+        throw(ArgumentError("El número de columnas debe ser igual y distinto de 2"))
+    elseif size(outputs, 2) == 1
+        vec_outputs = vec(outputs)
+        vec_targets = vec(targets)
+        return confusionMatrix(vec_outputs, vec_targets)
+    else
+        sensibilidad = zeros(size(outputs, 2))
+        especificidad = zeros(size(outputs, 2))
+        vpp = zeros(size(outputs, 2))
+        vpn = zeros(size(outputs, 2))
+        F1 = zeros(size(outputs, 2))
+        for i in 1:size(outputs, 2)
+            _, _, sensibilidad[i], especificidad[i], vpp[i], vpn[i], F1[i], _ = confusionMatrix(vec(outputs[:, i]), vec(targets[:, i]))
+        end
+
+
+    end
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true)

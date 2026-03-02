@@ -20,9 +20,8 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
+    outputs_bool = outputs .>= threshold
+    return confusionMatrix(outputs_bool, targets)
 end;
 
 function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
