@@ -63,9 +63,8 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
+    conversion = classifyOutputs(outputs, threshold=threshold)
+    return confusionMatrix(conversion, targets; weighted=weighted)
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
