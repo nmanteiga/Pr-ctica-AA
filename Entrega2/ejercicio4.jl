@@ -68,15 +68,20 @@ function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArra
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
+    if length(outputs) != length(targets)
+        throw(ArgumentError("outputs y targets deben tener la misma longitud"))
+    end
+    if !(all(in.(outputs, Ref(classes))) && all(in.(targets, Ref(classes))))
+        throw(ArgumentError("Todos los valores de outputs y targets deben estar en classes"))
+    end
+    outputs_enc = oneHotEncoding(outputs, classes)
+    targets_enc = oneHotEncoding(targets, classes)
+    return confusionMatrix(outputs_enc, targets_enc; weighted=weighted)
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
+    classes = unique(vcat(targets, outputs))
+    return confusionMatrix(outputs, targets, classes; weighted=weighted)
 end;
 
 using SymDoME
