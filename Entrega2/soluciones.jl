@@ -442,24 +442,80 @@ using SymDoME
 using GeneticProgramming
 
 
-function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
-    #
-    # Codigo a desarrollar
-    #
-end;
+function trainClassDoME(
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}},
+    testInputs::AbstractArray{<:Real,2},
+    maximumNodes::Int)
 
-function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    trainingInputs  = Float64.(trainingDataset[1])
+    trainingTargets = Float64.(trainingDataset[2])  # Float64 -regresión
+    testInputsF64   = Float64.(testInputs)
 
+    model, _, _, _ = dome(trainingInputs, trainingTargets; maximumNodes=maximumNodes)
 
-function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    testOutputs = evaluateTree(model, testInputsF64)
+
+    if isa(testOutputs, Real)
+        testOutputs = repeat([testOutputs], size(testInputs, 1))
+    end
+
+    return Float64.(vec(testOutputs))  # siempre Vector{Float64}, no matriz
+end
+
+function trainClassDoME(
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},
+    testInputs::AbstractArray{<:Real,2},
+    maximumNodes::Int)
+
+    trainingInputs  = trainingDataset[1]
+    trainingTargets = trainingDataset[2]
+    numClases       = size(trainingTargets, 2)
+
+    if numClases == 1
+        resultado = trainClassDoME((trainingInputs, vec(trainingTargets)), testInputs, maximumNodes)
+        return reshape(resultado, :, 1)
+    end
+
+    salidasMatriz = zeros(Float64, size(testInputs, 1), numClases)
+    for i in 1:numClases
+        salidasMatriz[:, i] = trainClassDoME(
+            (trainingInputs, vec(trainingTargets[:, i])),
+            testInputs, maximumNodes)
+    end
+    return salidasMatriz
+end
+
+function trainClassDoME(
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},
+    testInputs::AbstractArray{<:Real,2},
+    maximumNodes::Int)
+
+    trainingInputs  = trainingDataset[1]
+    trainingTargets = trainingDataset[2]
+
+classes = sort(unique(trainingTargets))
+    testOutputs = Array{eltype(trainingTargets),1}(undef, size(testInputs, 1))
+
+    testOutputsDoME = trainClassDoME(
+        (trainingInputs, oneHotEncoding(trainingTargets, classes)),
+        testInputs, maximumNodes)
+
+    testOutputsBool = classifyOutputs(testOutputsDoME; threshold=0)
+
+    if length(classes) <= 2
+        testOutputsBool = vec(testOutputsBool)
+        testOutputs[ testOutputsBool] .= classes[1]
+        if length(classes) == 2
+            testOutputs[.!testOutputsBool] .= classes[2]
+        end
+    else
+        for numClass in 1:length(classes)
+            testOutputs[testOutputsBool[:, numClass]] .= classes[numClass]
+        end
+    end
+
+    return testOutputs
+end
 
 
 
