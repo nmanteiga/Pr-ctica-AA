@@ -447,8 +447,8 @@ function trainClassDoME(
     testInputs::AbstractArray{<:Real,2},
     maximumNodes::Int)
 
-    trainingInputs  = Float64.(trainingDataset[1])
-    trainingTargets = Float64.(trainingDataset[2])  # Float64 -regresión
+    trainingInputs  = Float64.(trainingDataset[1]) # Float64 -regresión
+    trainingTargets = trainingDataset[2]
     testInputsF64   = Float64.(testInputs)
 
     model, _, _, _ = dome(trainingInputs, trainingTargets; maximumNodes=maximumNodes)
