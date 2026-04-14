@@ -1,0 +1,797 @@
+# Tened en cuenta que en este archivo todas las funciones tienen puesta la palabra reservada 'function' y 'end' al final
+# Según cómo las defináis, podrían tener que llevarlas o no
+
+# ----------------------------------------------------------------------------------------------
+# ------------------------------------- Ejercicio 2 --------------------------------------------
+# ----------------------------------------------------------------------------------------------
+
+using Statistics
+using Flux
+using Flux.Losses
+
+
+function oneHotEncoding(feature::AbstractArray{<:Any,1},  
+classes::AbstractArray{<:Any,1}) 
+    if length(classes)<=2
+        esClase1 = feature .== classes[1];
+        return reshape(esClase1, :, 1);
+    else
+        oneHot = Array{Bool,2}(undef, length(feature), length(classes));
+        for numClass in 1:length(classes)
+            esEstaClase = feature .== classes[numClass];
+            oneHot[:,numClass] .= esEstaClase;
+        end;
+        return oneHot;
+    end;
+end;
+
+oneHotEncoding(feature::AbstractArray{<:Any,1}) = oneHotEncoding(feature, unique(feature));
+
+oneHotEncoding(feature::AbstractArray{Bool,1}) = reshape(feature, :, 1);
+
+function calculateMinMaxNormalizationParameters(dataset::AbstractArray{<:Real,2})
+    min = minimum(dataset,dims=1);
+    max = maximum(dataset,dims=1);
+    return (min,max);
+end;
+
+function calculateZeroMeanNormalizationParameters(dataset::AbstractArray{<:Real,2})
+    media = mean(dataset,dims=1);
+    desviacion = std(dataset,dims=1);
+    return (media,desviacion);
+end;
+
+function normalizeMinMax!(dataset::AbstractArray{<:Real,2},
+    normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
+    minVal = normalizationParameters[1];
+    maxVal = normalizationParameters[2];
+    dataset .-= minVal;
+    dataset ./= (maxVal.-minVal);
+    dataset[:,vec(minVal.==maxVal)] .= 0;
+    return dataset;
+end;
+
+function normalizeMinMax!(dataset::AbstractArray{<:Real,2})
+    normalizationParameters = calculateMinMaxNormalizationParameters(dataset);
+    return normalizeMinMax!(dataset,normalizationParameters);
+end;
+
+function normalizeMinMax(dataset::AbstractArray{<:Real,2},
+    normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
+    return normalizeMinMax!(copy(dataset),normalizationParameters);
+end;
+
+function normalizeMinMax(dataset::AbstractArray{<:Real,2})
+    return normalizeMinMax!(copy(dataset));
+end;
+
+function normalizeZeroMean!(dataset::AbstractArray{<:Real,2},
+    normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
+    media = normalizationParameters[1];
+    desviacion = normalizationParameters[2];
+    dataset .-= media;
+    dataset ./= desviacion;
+    dataset[:,vec(desviacion.==0)] .= 0;
+    return dataset;
+end;
+
+function normalizeZeroMean!(dataset::AbstractArray{<:Real,2})
+    normalizationParameters = calculateZeroMeanNormalizationParameters(dataset);
+    return normalizeZeroMean!(dataset,normalizationParameters);
+end;
+
+function normalizeZeroMean(dataset::AbstractArray{<:Real,2},
+    normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
+    return normalizeZeroMean!(copy(dataset),normalizationParameters);
+end;
+
+function normalizeZeroMean(dataset::AbstractArray{<:Real,2})
+    return normalizeZeroMean!(copy(dataset));
+end;
+
+
+function classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5)
+    #Codigo a desarrollar
+    resultado = outputs .>= threshold
+    return resultado 
+end;
+
+function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
+    #Codigo a desarrollar
+    if size(outputs, 2)== 1
+        vector= outputs[:]
+        results = classifyOutputs(vector; threshold=threshold)
+        return reshape(results,:,1)
+    else 
+        (_, indicesMaxEachInstance) = findmax(outputs, dims=2)
+        outputs= falses(size(outputs))
+        outputs[indicesMaxEachInstance] .= true
+        return outputs
+    end
+end;
+
+function accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+    # Codigo a desarrollar
+    return mean(outputs.== targets)
+end;
+
+function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2})
+    # Codigo a desarrollar
+    if size(outputs, 2)== 1
+        vector1= outputs[:,1]
+        vector2 =targets[:,1]
+        results = accuracy(vector1,vector2)
+        return results
+    else
+        return mean(eachrow(outputs) .== eachrow(targets))
+    end
+end;
+
+function accuracy(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
+    # Codigo a desarrollar
+    realtobool=classifyOutputs(outputs, threshold=threshold)
+    accuracy(realtobool, targets)
+end;
+
+function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5)
+    # Codigo a desarrollar
+    conversion= classifyOutputs(outputs, threshold=threshold)
+    
+    accuracy(conversion, targets)
+end;
+
+function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutputs::Int; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)))
+    ann = Chain()
+    numInputsLayer = numInputs
+    
+    for (i, numOutputsLayer) in enumerate(topology)
+        ann = Chain(ann..., Dense(numInputsLayer, numOutputsLayer, transferFunctions[i]))
+        numInputsLayer = numOutputsLayer
+    end
+    
+    if numOutputs == 1
+        #Para a clasificación binaria
+        ann = Chain(ann..., Dense(numInputsLayer, 1, σ))
+    else
+        #Para a clasificación multiclase
+        ann = Chain(ann..., Dense(numInputsLayer, numOutputs), softmax)
+    end
+    
+    return ann
+end;
+
+function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+    inputs, targets = dataset
+    
+    inputs = Float32.(inputs)
+    targets = Float32.(targets)
+    
+    numInputs = size(inputs, 2)
+    numOutputs = size(targets, 2)
+    
+    ann = buildClassANN(numInputs, topology, numOutputs; transferFunctions=transferFunctions)
+    
+    opt_state = Flux.setup(Adam(learningRate), ann)
+    
+    x = inputs'
+    y = targets'
+    
+    #binarycrossentropy para clasificación binaria e crossentropy para clasificación multiclase
+    loss(model, x, y) = (size(y, 1) == 1) ? Losses.binarycrossentropy(model(x), y) : Losses.crossentropy(model(x), y)
+    
+    losses = Float32[]
+    
+    push!(losses, Float32(loss(ann, x, y)))
+    
+    epoch = 0
+    while epoch < maxEpochs && losses[end] > minLoss
+        Flux.train!(loss, ann, [(x, y)], opt_state)
+        push!(losses, Float32(loss(ann, x, y)))
+        epoch += 1
+    end
+    
+    return (ann, losses)
+end;
+
+function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+    targetsMatrix = reshape(targets, :, 1)
+
+    return trainClassANN(topology, (inputs, targetsMatrix); transferFunctions=transferFunctions, maxEpochs=maxEpochs, minLoss=minLoss, learningRate=learningRate)
+end;
+
+# ----------------------------------------------------------------------------------------------
+# ------------------------------------- Ejercicio 3 --------------------------------------------
+# ----------------------------------------------------------------------------------------------
+using Random
+
+function holdOut(N::Int, P::Real)
+    perm = randperm(N)                  # 1..N
+    n_test = round(Int, P * N)          # patrones para test
+    test_idx = perm[1:n_test]           # primeros para test
+    train_idx = perm[n_test+1:end]      # resto para entrenamiento
+    return (train_idx, test_idx)
+end
+
+# Nueva función con train/val/test
+function holdOut(N::Int, Pval::Real, Ptest::Real)
+    # 1) Separar test
+    train1_idx, test_idx = holdOut(N, Ptest)
+
+    # 2) Ajustar la tasa de validación al tamaño del nuevo subconjunto
+    Pval_adjusted = (Pval * N) / length(train1_idx)
+
+    # 3) Separar validación
+    val_train, val_idx = holdOut(length(train1_idx), Pval_adjusted)
+
+    # 4) Mapear índices locales a globales
+    val_idx = train1_idx[val_idx]
+    train_idx = train1_idx[val_train]
+
+    return (train_idx, val_idx, test_idx)
+end
+
+function trainClassANN(topology::AbstractArray{<:Int,1},
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}};
+    validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,size(trainingDataset[1],2)), falses(0,size(trainingDataset[2],2))),
+    testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,size(trainingDataset[1],2)), falses(0,size(trainingDataset[2],2))),
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, maxEpochsVal::Int=20)
+
+    # se contruye la rna
+    n_inputs = size(trainingDataset[1], 2)
+    n_outputs = size(trainingDataset[2], 2)
+    ann = buildClassANN(n_inputs, topology, n_outputs; transferFunctions=transferFunctions)
+
+    # configuración del entrenamiento
+    loss(m, x, y) = (size(y, 1) == 1) ? Flux.Losses.binarycrossentropy(m(x), y) : Flux.Losses.crossentropy(m(x), y)
+    
+    # optimizador ADAM
+    opt_state = Flux.setup(Adam(learningRate), ann)
+
+    x_train = Float32.(trainingDataset[1]')
+    y_train = trainingDataset[2]'
+    x_val = Float32.(validationDataset[1]')
+    y_val = validationDataset[2]'
+    x_test = Float32.(testDataset[1]')
+    y_test = testDataset[2]'
+
+    # vectores históricos de loss
+    train_losses = Float32[]
+    val_losses = Float32[]
+    test_losses = Float32[]
+
+    # variables para early-stop 
+    bestVal_loss = Inf32
+    best_ann = deepcopy(ann)
+    epochsSince_best = 0
+
+    # cálculo del loss incial (ciclo 0)
+    train_loss_0 = loss(ann, x_train, y_train)
+    push!(train_losses, train_loss_0)
+
+    if !isempty(validationDataset[1])
+        val_loss0 = loss(ann, x_val, y_val)
+        push!(val_losses, val_loss0)
+        bestVal_loss = val_loss0
+    end
+
+    if !isempty(testDataset[1])
+        push!(test_losses, loss(ann, x_test, y_test))
+    end
+
+    # ciclo de entrenamiento
+    for epoch in 1:maxEpochs
+        # entrenamiento ciclo 1
+        Flux.train!(loss, ann, [(x_train, y_train)], opt_state)
+
+        # cálculo y guardado de loss
+        current_loss = loss(ann, x_train, y_train)
+        push!(train_losses, current_loss)
+
+        if !isempty(testDataset[1])
+            push!(test_losses, loss(ann, x_test, y_test))
+        end
+
+        # lógica de validación y early-stop
+        if !isempty(validationDataset[1])
+            currentVal_loss = loss(ann, x_val, y_val)
+            push!(val_losses, currentVal_loss)
+
+            if currentVal_loss < bestVal_loss
+                bestVal_loss = currentVal_loss
+                best_ann = deepcopy(ann)
+                epochsSince_best = 0
+            else
+                epochsSince_best += 1
+            end
+
+            # early-stop
+            if epochsSince_best >= maxEpochsVal
+                return (best_ann, train_losses, val_losses, test_losses)
+            end
+        end
+
+        # parada por minloss
+        if current_loss <= minLoss
+            break
+        end
+    end
+    
+    # devuelve la mejor validadción si no se para(enunciado)
+    final_ann = isempty(validationDataset[1]) ? ann : best_ann
+    return (final_ann, train_losses, val_losses, test_losses)
+end
+
+function trainClassANN(topology::AbstractArray{<:Int,1},
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
+    validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,size(trainingDataset[1],2)), falses(0)),
+    testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,size(trainingDataset[1],2)), falses(0)),
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, maxEpochsVal::Int=20)
+
+    # conversión vectores a matrices
+    train_X = trainingDataset[1]
+    train_Y = reshape(trainingDataset[2], :, 1)
+    
+    # validación
+    val_X = validationDataset[1]
+    val_Y = reshape(validationDataset[2], :, 1)
+
+    # testing
+    test_X = testDataset[1]
+    test_Y = reshape(testDataset[2], :, 1)
+
+    # llamada a la función anterior
+    return trainClassANN(topology, (train_X, train_Y);
+        validationDataset = (val_X, val_Y),
+        testDataset       = (test_X, test_Y),
+        transferFunctions = transferFunctions,
+        maxEpochs         = maxEpochs,
+        minLoss           = minLoss,
+        learningRate      = learningRate,
+        maxEpochsVal      = maxEpochsVal)
+end
+
+# ----------------------------------------------------------------------------------------------
+# ------------------------------------- Ejercicio 4 --------------------------------------------
+# ----------------------------------------------------------------------------------------------
+
+
+function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+    VN = sum((outputs .== 0) .& (targets .== 0))
+    FN = sum((outputs .== 0) .& (targets .== 1))
+    FP = sum((outputs .== 1) .& (targets .== 0))
+    VP = sum((outputs .== 1) .& (targets .== 1))
+    precision = (VN + VP) / (VN + VP + FN + FP)
+    tasa_error = (FP + FN) / (VN + VP + FN + FP)
+    sensibilidad = VP + FN == 0 ? 1 : VP / (VP + FN)
+    especificidad = VN + FP == 0 ? 1 : VN / (VN + FP)
+    vpp = VP + FP == 0 ? 1 : VP / (VP + FP)
+    vpn = VN + FN == 0 ? 1 : VN / (VN + FN)
+    F1 = sensibilidad + vpp == 0 ? 0 : 2 * vpp * sensibilidad / (vpp + sensibilidad)
+    matriz = [VN FP; FN VP]
+    return precision, tasa_error, sensibilidad, especificidad, vpp, vpn, F1, matriz
+end;
+
+function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
+    outputs_bool = outputs .>= threshold
+    return confusionMatrix(outputs_bool, targets)
+end;
+
+function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
+    if size(outputs, 2) != size(targets, 2) || size(outputs, 2) == 2
+        throw(ArgumentError("El número de columnas debe ser igual y distinto de 2"))
+    elseif size(outputs, 2) == 1
+        vec_outputs = vec(outputs)
+        vec_targets = vec(targets)
+        return confusionMatrix(vec_outputs, vec_targets)
+    else
+        sensibilidad = zeros(size(outputs, 2))
+        especificidad = zeros(size(outputs, 2))
+        vpp = zeros(size(outputs, 2))
+        vpn = zeros(size(outputs, 2))
+        F1 = zeros(size(outputs, 2))
+        for i in 1:size(outputs, 2)
+            _, _, sensibilidad[i], especificidad[i], vpp[i], vpn[i], F1[i], _ = confusionMatrix(vec(outputs[:, i]), vec(targets[:, i]))
+        end
+        matriz = targets' * outputs
+        counts = vec(sum(targets, dims=1))
+        if weighted
+            total = sum(counts)
+            sensibilidadM = sum(counts .* sensibilidad) / total
+            especificidadM = sum(counts .* especificidad) / total
+            vppM = sum(counts .* vpp) / total
+            vpnM = sum(counts .* vpn) / total
+            F1M = sum(counts .* F1) / total
+        else
+            sensibilidadM = mean(sensibilidad)
+            especificidadM = mean(especificidad)
+            vppM = mean(vpp)
+            vpnM = mean(vpn)
+            F1M = mean(F1)
+        end
+        precision = accuracy(outputs, targets)
+        tasa_error = 1 - precision
+        return precision, tasa_error, sensibilidadM, especificidadM, vppM, vpnM, F1M, matriz
+    end
+end;
+
+function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true)
+    conversion = classifyOutputs(outputs, threshold=threshold)
+    return confusionMatrix(conversion, targets; weighted=weighted)
+end;
+
+function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
+    if length(outputs) != length(targets)
+        throw(ArgumentError("outputs y targets deben tener la misma longitud"))
+    end
+    if !(all(in.(outputs, Ref(classes))) && all(in.(targets, Ref(classes))))
+        throw(ArgumentError("Todos los valores de outputs y targets deben estar en classes"))
+    end
+    outputs_enc = oneHotEncoding(outputs, classes)
+    targets_enc = oneHotEncoding(targets, classes)
+    return confusionMatrix(outputs_enc, targets_enc; weighted=weighted)
+end;
+
+function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
+    classes = unique(vcat(targets, outputs))
+    return confusionMatrix(outputs, targets, classes; weighted=weighted)
+end;
+
+using SymDoME
+using GeneticProgramming
+
+
+function trainClassDoME(
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}},
+    testInputs::AbstractArray{<:Real,2},
+    maximumNodes::Int)
+
+    trainingInputs  = Float64.(trainingDataset[1]) # Float64 -regresión
+    trainingTargets = trainingDataset[2]
+    testInputsF64   = Float64.(testInputs)
+
+    model, _, _, _ = dome(trainingInputs, trainingTargets; maximumNodes=maximumNodes)
+
+    testOutputs = evaluateTree(model, testInputsF64)
+
+    if isa(testOutputs, Real)
+        testOutputs = repeat([testOutputs], size(testInputs, 1))
+    end
+
+    return Float64.(vec(testOutputs))  # siempre Vector{Float64}, no matriz
+end
+
+function trainClassDoME(
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},
+    testInputs::AbstractArray{<:Real,2},
+    maximumNodes::Int)
+
+    trainingInputs  = trainingDataset[1]
+    trainingTargets = trainingDataset[2]
+    numClases       = size(trainingTargets, 2)
+
+    if numClases == 1
+        resultado = trainClassDoME((trainingInputs, vec(trainingTargets)), testInputs, maximumNodes)
+        return reshape(resultado, :, 1)
+    end
+
+    salidasMatriz = zeros(Float64, size(testInputs, 1), numClases)
+    for i in 1:numClases
+        salidasMatriz[:, i] = trainClassDoME(
+            (trainingInputs, vec(trainingTargets[:, i])),
+            testInputs, maximumNodes)
+    end
+    return salidasMatriz
+end
+
+function trainClassDoME(
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},
+    testInputs::AbstractArray{<:Real,2},
+    maximumNodes::Int)
+
+    trainingInputs  = trainingDataset[1]
+    trainingTargets = trainingDataset[2]
+
+classes = sort(unique(trainingTargets))
+    testOutputs = Array{eltype(trainingTargets),1}(undef, size(testInputs, 1))
+
+    testOutputsDoME = trainClassDoME(
+        (trainingInputs, oneHotEncoding(trainingTargets, classes)),
+        testInputs, maximumNodes)
+
+    testOutputsBool = classifyOutputs(testOutputsDoME; threshold=0)
+
+    if length(classes) <= 2
+        testOutputsBool = vec(testOutputsBool)
+        testOutputs[ testOutputsBool] .= classes[1]
+        if length(classes) == 2
+            testOutputs[.!testOutputsBool] .= classes[2]
+        end
+    else
+        for numClass in 1:length(classes)
+            testOutputs[testOutputsBool[:, numClass]] .= classes[numClass]
+        end
+    end
+
+    return testOutputs
+end
+
+
+
+
+# ----------------------------------------------------------------------------------------------
+# ------------------------------------- Ejercicio 5 --------------------------------------------
+# ----------------------------------------------------------------------------------------------
+
+using Random
+using Random:seed!
+
+function crossvalidation(N::Int64, k::Int64)
+    # Codigo a desarrollar
+    vector= collect(1:k)
+    repeats= ceil(Int64, N/k)
+    clonados= repeat(vector, repeats)
+    recortados = clonados[1:N]
+    shuffle!(recortados)
+end;
+
+function crossvalidation(targets::AbstractArray{Bool,1}, k::Int64)
+    # Codigo a desarrollar
+    indices = zeros(Int64, length(targets))
+    numpositivos= sum(targets)
+    indices[targets] = crossvalidation(numpositivos, k)
+    numnegativos = length(indices) - numpositivos
+    indices[.!targets] = crossvalidation(numnegativos, k)
+    return indices
+    
+end;
+
+function crossvalidation(targets::AbstractArray{Bool,2}, k::Int64)
+    # Codigo a desarrollar
+    vector = zeros(Int64, size(targets,1))
+    for i in 1:size(targets,2)
+        columna = targets[:, i]
+        numpositivos= sum(columna)
+        vector[columna] = crossvalidation(numpositivos, k)
+    end
+    return vector
+end;
+
+function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
+    # Codigo a desarrollar
+    matriz_booleana = oneHotEncoding(targets)
+    resultado =crossvalidation(matriz_booleana, k)
+    return resultado
+end;
+
+function ANNCrossValidation(topology::AbstractArray{<:Int,1},
+    dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},
+    crossValidationIndices::Array{Int64,1};
+    numExecutions::Int=50,
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, validationRatio::Real=0, maxEpochsVal::Int=20)
+    
+    inputs = dataset[1]
+    targets = dataset[2]
+    classes = unique(targets)
+    numClasses = length(classes)
+    targets_bool = oneHotEncoding(targets, classes)
+    num_folds = maximum(crossValidationIndices)
+    N = size(inputs, 1)
+
+    acc_folds = zeros(Float64, num_folds)
+    err_folds = zeros(Float64, num_folds)
+    sens_folds = zeros(Float64, num_folds)
+    spec_folds = zeros(Float64, num_folds)
+    vpp_folds = zeros(Float64, num_folds)
+    vpn_folds = zeros(Float64, num_folds)
+    f1_folds = zeros(Float64, num_folds)
+    
+    matriz_confusion_global = zeros(Float64, numClasses, numClasses)
+
+    for k in 1:num_folds
+        test_idx = (crossValidationIndices .== k)
+        train_idx = (crossValidationIndices .!= k)
+
+        train_inputs = inputs[train_idx, :]
+        train_targets = targets_bool[train_idx, :]
+        test_inputs = inputs[test_idx, :]
+        test_targets = targets_bool[test_idx, :]
+
+        acc_exec = zeros(Float64, numExecutions)
+        err_exec = zeros(Float64, numExecutions)
+        sens_exec = zeros(Float64, numExecutions)
+        spec_exec = zeros(Float64, numExecutions)
+        vpp_exec = zeros(Float64, numExecutions)
+        vpn_exec = zeros(Float64, numExecutions)
+        f1_exec = zeros(Float64, numExecutions)
+        cm_exec = zeros(Float64, numClasses, numClasses, numExecutions)
+
+        N_train = sum(train_idx)
+        val_ratio_fold = (validationRatio * N) / N_train
+
+        for e in 1:numExecutions
+            if validationRatio > 0
+                train_val_idx, val_idx = holdOut(N_train, val_ratio_fold)
+                
+                t_inputs = train_inputs[train_val_idx, :]
+                t_targets = train_targets[train_val_idx, :]
+                v_inputs = train_inputs[val_idx, :]
+                v_targets = train_targets[val_idx, :]
+                
+                ann, _ = trainClassANN(topology, (t_inputs, t_targets); 
+                                    validationDataset=(v_inputs, v_targets),
+                                    transferFunctions=transferFunctions,
+                                    maxEpochs=maxEpochs, minLoss=minLoss, 
+                                    learningRate=learningRate, maxEpochsVal=maxEpochsVal)
+            else
+                ann, _ = trainClassANN(topology, (train_inputs, train_targets); 
+                                    transferFunctions=transferFunctions,
+                                    maxEpochs=maxEpochs, minLoss=minLoss, 
+                                    learningRate=learningRate)
+            end
+
+            outputs = ann(test_inputs')'
+
+            acc, err, sens, spec, vpp, vpn, f1, conf = confusionMatrix(outputs, test_targets)
+            
+            acc_exec[e] = acc
+            err_exec[e] = err
+            sens_exec[e] = sens
+            spec_exec[e] = spec
+            vpp_exec[e] = vpp
+            vpn_exec[e] = vpn
+            f1_exec[e] = f1
+            cm_exec[:, :, e] = conf
+        end
+
+        acc_folds[k] = mean(acc_exec)
+        err_folds[k] = mean(err_exec)
+        sens_folds[k] = mean(sens_exec)
+        spec_folds[k] = mean(spec_exec)
+        vpp_folds[k] = mean(vpp_exec)
+        vpn_folds[k] = mean(vpn_exec)
+        f1_folds[k] = mean(f1_exec)
+
+        matriz_confusion_global .+= mean(cm_exec, dims=3)[:, :, 1]
+    end
+
+    return (
+        (mean(acc_folds), std(acc_folds)),
+        (mean(err_folds), std(err_folds)),
+        (mean(sens_folds), std(sens_folds)),
+        (mean(spec_folds), std(spec_folds)),
+        (mean(vpp_folds), std(vpp_folds)),
+        (mean(vpn_folds), std(vpn_folds)),
+        (mean(f1_folds), std(f1_folds)),
+        matriz_confusion_global
+    )
+end;
+
+# ----------------------------------------------------------------------------------------------
+# ------------------------------------- Ejercicio 6 --------------------------------------------
+# ----------------------------------------------------------------------------------------------
+
+using MLJ
+using LIBSVM, MLJLIBSVMInterface
+using NearestNeighborModels, MLJDecisionTreeInterface
+
+SVMClassifier = MLJ.@load SVC pkg=LIBSVM verbosity=0
+kNNClassifier = MLJ.@load KNNClassifier pkg=NearestNeighborModels verbosity=0
+DTClassifier  = MLJ.@load DecisionTreeClassifier pkg=DecisionTree verbosity=0
+
+
+function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}}, crossValidationIndices::Array{Int64,1})
+    inputs, targets = dataset
+
+    #ler hiperparametros do dicionario para string e symbol
+    function getHP(d::Dict, key::String)
+        if haskey(d, key)
+            return d[key]
+        elseif haskey(d, Symbol(key))
+            return d[Symbol(key)]
+        else
+            return nothing
+        end
+    end
+
+    #para RNA
+    if modelType == :ANN
+        topology = getHP(modelHyperparameters, "topology")
+        learningRate = getHP(modelHyperparameters, "learningRate")
+        validationRatio = getHP(modelHyperparameters, "validationRatio")
+        numExecutions = getHP(modelHyperparameters, "numExecutions")
+        maxEpochs = getHP(modelHyperparameters, "maxEpochs")
+        maxEpochsVal = getHP(modelHyperparameters, "maxEpochsVal")
+
+        kwargs = Dict{Symbol,Any}()
+        learningRate !== nothing && (kwargs[:learningRate] = learningRate)
+        validationRatio !== nothing && (kwargs[:validationRatio] = validationRatio)
+        numExecutions !== nothing && (kwargs[:numExecutions] = numExecutions)
+        maxEpochs !== nothing && (kwargs[:maxEpochs] = maxEpochs)
+        maxEpochsVal !== nothing && (kwargs[:maxEpochsVal] = maxEpochsVal)
+
+        #funcion exercicio anterior
+        return ANNCrossValidation(topology, (inputs, targets), crossValidationIndices; kwargs...)
+    end
+
+    #resto
+    targets = string.(targets)
+    classes = unique(targets)
+    numFolds = maximum(crossValidationIndices)
+    numClasses = length(classes)
+
+    #vectores metricas
+    acc_v = Vector{Float64}(undef, numFolds)
+    err_v = Vector{Float64}(undef, numFolds)
+    sens_v = Vector{Float64}(undef, numFolds)
+    spec_v = Vector{Float64}(undef, numFolds)
+    vpp_v = Vector{Float64}(undef, numFolds)
+    vpn_v = Vector{Float64}(undef, numFolds)
+    f1_v = Vector{Float64}(undef, numFolds)
+    confMat = zeros(Int, numClasses, numClasses)
+
+    for fold in 1:numFolds
+        testIdx = crossValidationIndices .== fold
+        trainIdx = .!testIdx
+
+        trainInputs = inputs[trainIdx, :]
+        testInputs = inputs[testIdx, :]
+        trainTargets = targets[trainIdx]
+        testTargets = targets[testIdx]
+
+        if modelType == :DoME
+            #funcion do exercicio 4
+            testOutputs = trainClassDoME((trainInputs, trainTargets), testInputs,getHP(modelHyperparameters, "maximumNodes"))
+        else
+            if modelType == :SVC
+                kernel_str = getHP(modelHyperparameters, "kernel")
+                C = getHP(modelHyperparameters, "C")
+
+                if kernel_str == "linear"
+                    model = SVMClassifier(kernel = LIBSVM.Kernel.Linear, cost = Float64(C))
+
+                elseif kernel_str == "rbf"
+                    model = SVMClassifier(kernel = LIBSVM.Kernel.RadialBasis, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")))
+
+                elseif kernel_str == "sigmoid"
+                    model = SVMClassifier(kernel = LIBSVM.Kernel.Sigmoid, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")), coef0 = Int32(getHP(modelHyperparameters, "coef0")))
+
+                elseif kernel_str == "poly"
+                    model = SVMClassifier(kernel = LIBSVM.Kernel.Polynomial, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")), degree = Float64(getHP(modelHyperparameters, "degree")), coef0 = Int32(getHP(modelHyperparameters, "coef0")))
+                end
+
+            elseif modelType == :DecisionTreeClassifier
+                model = DTClassifier(max_depth = getHP(modelHyperparameters, "max_depth"), rng = Random.MersenneTwister(1)) #reproducibilidade
+
+            elseif modelType == :KNeighborsClassifier
+                model = kNNClassifier(K = getHP(modelHyperparameters, "n_neighbors"))
+            end
+            
+            #entrenamento e prediccións
+            mach = machine(model, MLJ.table(trainInputs), categorical(trainTargets))
+            MLJ.fit!(mach, verbosity=0)
+            testOutputs = MLJ.predict(mach, MLJ.table(testInputs))
+
+            if modelType != :SVC
+                testOutputs = mode.(testOutputs)
+            end
+            testOutputs = string.(testOutputs)
+        end
+
+        acc, err, sens, spec, vpp, vpn, f1, cm = confusionMatrix(testOutputs, testTargets, classes)
+        acc_v[fold] = acc
+        err_v[fold] = err
+        sens_v[fold] = sens
+        spec_v[fold] = spec
+        vpp_v[fold] = vpp
+        vpn_v[fold] = vpn
+        f1_v[fold] = f1
+        confMat += cm
+    end
+
+    return ((mean(acc_v), std(acc_v)), (mean(err_v), std(err_v)), (mean(sens_v), std(sens_v)), (mean(spec_v), std(spec_v)), (mean(vpp_v), std(vpp_v)), (mean(vpn_v), std(vpn_v)), (mean(f1_v), std(f1_v)), confMat)
+end;
+
+
