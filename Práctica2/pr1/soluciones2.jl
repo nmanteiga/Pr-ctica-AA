@@ -756,10 +756,10 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dat
                     model = SVMClassifier(kernel = LIBSVM.Kernel.RadialBasis, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")))
 
                 elseif kernel_str == "sigmoid"
-                    model = SVMClassifier(kernel = LIBSVM.Kernel.Sigmoid, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")), coef0 = Int32(getHP(modelHyperparameters, "coef0")))
+                    model = SVMClassifier(kernel = LIBSVM.Kernel.Sigmoid, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")), coef0 = Float64(getHP(modelHyperparameters, "coef0")))
 
                 elseif kernel_str == "poly"
-                    model = SVMClassifier(kernel = LIBSVM.Kernel.Polynomial, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")), degree = Float64(getHP(modelHyperparameters, "degree")), coef0 = Int32(getHP(modelHyperparameters, "coef0")))
+                    model = SVMClassifier(kernel = LIBSVM.Kernel.Polynomial, cost = Float64(C), gamma = Float64(getHP(modelHyperparameters, "gamma")), degree = Int32(getHP(modelHyperparameters, "degree")), coef0 = Float64(getHP(modelHyperparameters, "coef0")))
                 end
 
             elseif modelType == :DecisionTreeClassifier
