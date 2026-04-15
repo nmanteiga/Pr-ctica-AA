@@ -88,21 +88,72 @@ using SymDoME
 using GeneticProgramming
 
 
+# 1. Versión para clasificación BINARIA
 function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
+    inputs, targets = trainingDataset
+    targetsFloat = Float64.(targets)
+    
+    # Añadimos un valor de reducción MSE muy pequeño para que explore más
+    d = SymDoME.DoME(Float64.(inputs), targetsFloat; 
+        dataInRows=true, 
+        maximumNodes=maximumNodes, 
+        minimumReductionMSE=1e-12) 
+        
+    PerformSearches!(d)
+    
+    testOutputsFloat = evaluateTree(d.tree, Float64.(testInputs); dataInRows=true)
+    
+    if isa(testOutputsFloat, Number)
+        testOutputsFloat = fill(testOutputsFloat, size(testInputs,1))
+    end
+    return testOutputsFloat .>= 0.5
+end 
+# 2. Versión para clasificación MULTICLASE con Matriz (La que usa modelCrossValidation)
 function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    inputs, targets = trainingDataset
+    numClasses = size(targets, 2)
+    numTestSamples = size(testInputs, 1)
+    scores = zeros(Float64, numTestSamples, numClasses)
 
+    for c in 1:numClasses
+        colTargets = Float64.(targets[:, c])
+        d = SymDoME.DoME(Float64.(inputs), colTargets; dataInRows=true, maximumNodes=maximumNodes)
+        PerformSearches!(d)
+        
+        # Obtenemos las predicciones del árbol para esta clase
+        vals = evaluateTree(d.tree, Float64.(testInputs); dataInRows=true)
+        
+        # El operador .= es vital para que no falle la asignación
+        if isa(vals, Number)
+            scores[:, c] .= vals
+        else
+            scores[:, c] .= vals
+        end
+    end
 
+    # Elegimos la clase con mayor puntuación (Winner Takes All)
+    winners = argmax.(eachrow(scores))
+    outputsBool = falses(numTestSamples, numClasses)
+    for i in 1:numTestSamples
+        outputsBool[i, winners[i]] = true
+    end
+    return outputsBool
+end
+
+# 3. Versión para clasificación con etiquetas (ej: "setosa", "virginica")
 function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    inputs, targets = trainingDataset
+    classes = unique(targets)
+    targetsBool = oneHotEncoding(targets, classes)
+    
+    # Llama a la versión 2 definida arriba
+    outputsBool = trainClassDoME((inputs, targetsBool), testInputs, maximumNodes)
+
+    numTestSamples = size(testInputs, 1)
+    predictions = Vector{String}(undef, numTestSamples)
+    for i in 1:numTestSamples
+        idx = findfirst(outputsBool[i, :])
+        predictions[i] = string(idx === nothing ? classes[1] : classes[idx])
+    end
+    return predictions
+end
