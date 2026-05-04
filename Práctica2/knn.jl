@@ -3,7 +3,7 @@
 # SECCIÓN 4.5: k-NEAREST NEIGHBORS (kNN) - LSE
 # ==============================================================================
 using Random, Statistics, DataFrames, CSV, Printf
-include("pr1/soluciones2.jl") 
+include("fonts/soluciones2.jl") 
 
 # Semilla aleatoria obligatoria para garantizar repetibilidad 
 Random.seed!(42)

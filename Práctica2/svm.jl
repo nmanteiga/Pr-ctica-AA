@@ -3,7 +3,7 @@
 # SECCIÓN 4.3: SVM - LSE
 # ==============================================================================
 using Random, Statistics, DataFrames, CSV, Printf
-include("pr1/soluciones2.jl")
+include("fonts/soluciones2.jl")
 
 # semilla aleatoria obligatoria para garantizar repetibilidad
 Random.seed!(42)

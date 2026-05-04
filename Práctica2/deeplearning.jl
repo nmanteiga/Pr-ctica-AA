@@ -10,69 +10,8 @@ using Statistics: mean
 using ImageTransformations
 using Random # Para barajar los datos
 
-# --- Funciones de One Hot Encoding ---
-function oneHotEncoding(feature::AbstractArray{<:Any,1},  
-classes::AbstractArray{<:Any,1}) 
-    if length(classes)<=2
-        esClase1 = feature .== classes[1];
-        return reshape(esClase1, :, 1);
-    else
-        oneHot = Array{Bool,2}(undef, length(feature), length(classes));
-        for numClass in 1:length(classes)
-            esEstaClase = feature .== classes[numClass];
-            oneHot[:,numClass] .= esEstaClase;
-        end;
-        return oneHot;
-    end;
-end;
-
-oneHotEncoding(feature::AbstractArray{<:Any,1}) = oneHotEncoding(feature, unique(feature));
-oneHotEncoding(feature::AbstractArray{Bool,1}) = reshape(feature, :, 1);
-
-# --- Funciones de Clasificación ---
-function classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5)
-    resultado = outputs .>= threshold
-    return resultado 
-end;
-
-function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
-    if size(outputs, 2)== 1
-        vector= outputs[:]
-        results = classifyOutputs(vector; threshold=threshold)
-        return reshape(results,:,1)
-    else 
-        (_, indicesMaxEachInstance) = findmax(outputs, dims=2)
-        outputs= falses(size(outputs))
-        outputs[indicesMaxEachInstance] .= true
-        return outputs
-    end
-end;
-
-# --- Funciones de Precisión (Accuracy) ---
-function accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
-    return mean(outputs.== targets)
-end;
-
-function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2})
-    if size(outputs, 2)== 1
-        vector1= outputs[:,1]
-        vector2 =targets[:,1]
-        results = accuracy(vector1,vector2)
-        return results
-    else
-        return mean(eachrow(outputs) .== eachrow(targets))
-    end
-end;
-
-function accuracy(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    realtobool=classifyOutputs(outputs, threshold=threshold)
-    accuracy(realtobool, targets)
-end;
-
-function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5)
-    conversion= classifyOutputs(outputs, threshold=threshold)
-    accuracy(conversion, targets)
-end;
+# Cargar funciones desde el archivo de soluciones
+include("fonts/soluciones.jl")
 
 # --- Función para imprimir la Matriz de Confusión ---
 function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2})
