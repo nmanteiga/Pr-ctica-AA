@@ -1,6 +1,5 @@
 # ==============================================================================
-# APRENDIZAJE AUTOMÁTICO - UNIVERSIDADE DA CORUÑA
-# SECCIÓN 4.3: SVM - LSE
+# SVM 
 # ==============================================================================
 using Random, Statistics, DataFrames, CSV, Printf
 include("fonts/soluciones2.jl")

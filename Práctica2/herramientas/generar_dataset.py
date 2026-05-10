@@ -5,12 +5,12 @@ from mediapipe.tasks.python import vision
 import os
 import csv
 
-MODEL_PATH = "hand_landmarker.task"
+MODEL_PATH = "herramientas/hand_landmarker.task"
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
 options = vision.HandLandmarkerOptions(base_options=base_options, num_hands=1)
 detector = vision.HandLandmarker.create_from_options(options)
-DATASET_PATH = "dataset"
-OUTPUT_CSV = "dataset/landmarks_lse.csv"
+DATASET_PATH = "../dataset"
+OUTPUT_CSV = "../dataset/landmarks_lse.csv"
 
 clases = [d for d in os.listdir(DATASET_PATH) if os.path.isdir(os.path.join(DATASET_PATH, d))]
 

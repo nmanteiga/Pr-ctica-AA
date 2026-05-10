@@ -1,6 +1,5 @@
 # ==============================================================================
-# APRENDIZAJE AUTOMÁTICO - UNIVERSIDADE DA CORUÑA
-# SECCIÓN 4.2: REDES NEURONALES ARTIFICIALES (RR.NN.AA.) - LSE
+# REDES NEURONALES ARTIFICIALES (RR.NN.AA.)
 # ==============================================================================
 using Random, Statistics, DataFrames, CSV, Printf
 include("fonts/soluciones2.jl") 

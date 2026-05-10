@@ -1,6 +1,5 @@
 # ==============================================================================
-# APRENDIZAJE AUTOMÁTICO - UNIVERSIDADE DA CORUÑA
-# SECCIÓN 4.5: k-NEAREST NEIGHBORS (kNN) - LSE
+# k-NEAREST NEIGHBORS (kNN) 
 # ==============================================================================
 using Random, Statistics, DataFrames, CSV, Printf
 include("fonts/soluciones2.jl") 

@@ -64,11 +64,10 @@ num_patrones_totales = length(mis_imagenes_totales)
 
 indices_aleatorios_globales = randperm(num_patrones_totales)
 println("Datos cargados y listos. Total de imágenes: ", num_patrones_totales)
+
 # ==============================================================================================
 # BLOQUE 4: CÓDIGO DEL PROFESOR ADAPTADO
 # ==============================================================================================
-
-### MODIFICACIÓN 1: Cambiamos la función del profesor para que haga el 'imresize' a un tamaño fijo (28x28)
 function convertirArrayImagenesWHCN(imagenes)
     numPatrones = length(imagenes);
     nuevoArray = Array{Float32,4}(undef, 28, 28, 1, numPatrones); # Importante que sea un array de Float32
@@ -81,7 +80,6 @@ function convertirArrayImagenesWHCN(imagenes)
 end;
 
 
-### MODIFICACIÓN 2: Envolvemos la creación de la red en una función para tener 4 distintas
 funcionTransferenciaCapasConvolucionales = relu;
 
 function crear_red_neuronal(num_arquitectura)
@@ -125,7 +123,6 @@ function crear_red_neuronal(num_arquitectura)
 end
 
 
-### MODIFICACIÓN 3: Bucle de Arquitecturas y Validación Cruzada
 for arquitectura_actual in 1:4
     println("\n\n==================================================")
     println("EVALUANDO ARQUITECTURA ", arquitectura_actual)
@@ -147,7 +144,6 @@ for arquitectura_actual in 1:4
         train_imgs_whcn = convertirArrayImagenesWHCN(train_imgs);
         test_imgs_whcn  = convertirArrayImagenesWHCN(test_imgs);
 
-        ### MODIFICACIÓN 4: Un único batch con todo (eliminamos Iterators.partition)
         # Creamos el conjunto de entrenamiento: va a ser un vector con una sola tupla
         train_set = [ (train_imgs_whcn, oneHotEncoding(train_labels, labels)') ];
 

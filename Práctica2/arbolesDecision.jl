@@ -1,6 +1,5 @@
 # ==============================================================================
-# APRENDIZAJE AUTOMÁTICO - UNIVERSIDADE DA CORUÑA
-# SECCIÓN 4.4: ÁRBOLES DE DECISIÓN - LSE
+# ÁRBOLES DE DECISIÓN
 # ==============================================================================
 using Random, Statistics, DataFrames, CSV, Printf
 include("fonts/soluciones2.jl") 
